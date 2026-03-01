@@ -3,6 +3,7 @@
 import express from 'express';
 import authRoutes from './authRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import companyRoutes from './companyRoutes.js';
 import recruiterRoutes from './Recruiter.js';
 import ticketRoutes from './ticketRoutes.js';
 import offerRoutes from "./offerRoutes.js";
@@ -19,6 +20,7 @@ const router = express.Router();
 
 router.use('/auth', authRoutes);
 router.use('/admin', adminRoutes);
+router.use('/company', companyRoutes);
 router.use('/recruiter', recruiterRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/offer', offerRoutes);

@@ -18,7 +18,17 @@ const CompanySchema = new mongoose.Schema({
   address2: { type: String, default: "" },
   city: { type: String, required: true },
   state: { type: String, required: true },
-  logo: { type: String, default: "" }, 
+  logo: { type: String, default: "" },
+  // Subscription fields
+  subscription: {
+    type: String,
+    enum: ["trial", "pro", "premium"],
+    default: "trial"
+  },
+  subscriptionStart: { type: Date, default: Date.now },
+  subscriptionEnd: { type: Date },
+  isTrialActive: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true }
 });
 
 export default mongoose.model("Company", CompanySchema);

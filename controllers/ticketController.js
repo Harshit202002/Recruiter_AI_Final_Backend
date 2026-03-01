@@ -46,13 +46,17 @@ export const createTicket = asyncHandler(async (req, res, next)=>{
 
 
 export const getAllTickets = asyncHandler(async(req, res, next) => {
-    const tickets = await Ticket.find()
-    .populate("raisedBy", "name email role")
-    .populate("assignedTo", "name email");
+    let filter = {};
+    if (req.user && req.user.company) {
+      filter = { company: req.user.company };
+    }
+    const tickets = await Ticket.find(filter)
+      .populate("raisedBy", "name email role")
+      .populate("assignedTo", "name email");
 
     res.status(200).json({
-        success:true,
-        tickets,
+      success:true,
+      tickets,
     });
 });
 

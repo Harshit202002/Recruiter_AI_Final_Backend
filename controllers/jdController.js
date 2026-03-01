@@ -12,10 +12,10 @@ export const createJD = asyncHandler(async (req, res, next) => {
   const { offerId } = req.params;
   const { jobSummary, responsibilities, requirements, benefits, additionalNotes } = req.body;
  
-  // Validate offer exists
-  const offer = await Offer.findById(offerId);
-    if (!offer) return next(new ErrorResponse("Offer not found", 404));
- 
+  // Validate offer exists and belongs to user's company
+  const offer = await Offer.findOne({ _id: offerId, company: req.user.company });
+  if (!offer) return next(new ErrorResponse("Offer not found or not authorized", 404));
+
   // Only assigned HR can create JD
   if (offer.assignedTo.toString() !== req.user._id.toString()) {
     return next(new ErrorResponse("Not authorized to create JD for this offer.", 403));
@@ -72,9 +72,9 @@ export const createJDWithAI = asyncHandler(async (req, res, next) => {
     additionalNotes 
   } = req.body;
 
-  // Validate offer exists
-  const offer = await Offer.findById(offerId);
-  if (!offer) return next(new ErrorResponse("Offer not found", 404));
+  // Validate offer exists and belongs to user's company
+  const offer = await Offer.findOne({ _id: offerId, company: req.user.company });
+  if (!offer) return next(new ErrorResponse("Offer not found or not authorized", 404));
 
   // Only assigned HR can create JD
   if (offer.assignedTo.toString() !== req.user._id.toString()) {

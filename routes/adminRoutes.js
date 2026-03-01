@@ -6,12 +6,14 @@ import { updateRmg } from '../controllers/adminController.js';
 import { deleteRmg,getAllHR,getRecruiterById,deleteHR,updateHR } from '../controllers/adminController.js';
 import { protect } from '../middlewares/auth.js';
 import { authorize } from '../middlewares/roles.js';
+import { checkSubscription } from '../middlewares/subscription.js';
 
 const router = express.Router();
 
 // All routes below are protected and only accessible by Admins
 router.use(protect);
 router.use(authorize('Admin'));
+router.use(checkSubscription);
 
 // POST /api/admin/rmg
 router.post('/rmg', registerRMG);

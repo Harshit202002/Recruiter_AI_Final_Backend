@@ -25,6 +25,8 @@ export const notifyHrDueDateApproaching = asyncHandler(async (req, res, next) =>
     });
     if (!recent) {
       await Notification.create({ recipient: hrId, message, link });
+    // Always associate offer with the admin's company
+    const company = req.user.company;
       if (io) io.to(hrId.toString()).emit('notification', { message, link, createdAt: new Date() });
       notified++;
     }
@@ -41,23 +43,22 @@ import User from "../models/User.js"
 
 export const createOffer = asyncHandler(async(req, res, next) => {
     const {
-        jobTitle,
-        priority,
-        dueDate,
-        assignedTo,
-        description,
-        skills,
-        preferredSkills,
-        experience,
-        positionAvailable,
-        workMode,
-        location,
-        employmentType,
-        salary,
-        currency,
-        attachments,
-        companyName
-
+      jobTitle,
+      priority,
+      dueDate,
+      assignedTo,
+      description,
+      skills,
+      preferredSkills,
+      experience,
+      positionAvailable,
+      workMode,
+      location,
+      employmentType,
+      salary,
+      currency,
+      attachments,
+      companyName
     } = req.body;
 
     const hrUser = await User.findById(assignedTo);

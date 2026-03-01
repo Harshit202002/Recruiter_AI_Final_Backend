@@ -7,18 +7,21 @@ import Candidate from "../models/candidate.js";
 import JD from "../models/jobDescription.js";
 
 export const gettotalOffers = asyncHandler(async (req, res, next) => {
-    const totalOffers = await Offer.countDocuments();
+    // Only count offers for the user's company
+    const totalOffers = await Offer.countDocuments({ company: req.user.company });
     res.status(200).json({ success: true, totalOffers });
 });
 
 export const getToatalTicketsRaisedByRMG = asyncHandler(async (req, res, next) => {
-    const totalTickets = await Ticket.countDocuments({ role: "RMG" });
+    // Only count tickets for the user's company
+    const totalTickets = await Ticket.countDocuments({ role: "RMG", company: req.user.company });
     res.status(200).json({ success: true, totalTickets });
 });
 
 export const getTotalRecruitersAndTotalOfferMonthWise = asyncHandler(async (req, res, next) => {
+    // Only aggregate for the user's company
     const totalRecruiterMonthWise = await User.aggregate([
-        { $match: { role: "HR" } },
+        { $match: { role: "HR", company: req.user.company } },
         { $group: {
             _id: { $month: "$createdAt" },
             count: { $sum: 1 }
@@ -27,10 +30,11 @@ export const getTotalRecruitersAndTotalOfferMonthWise = asyncHandler(async (req,
 
     // Get current year
     const currentYear = new Date().getFullYear();
-    // Aggregate offers month-wise for the current year
+    // Aggregate offers month-wise for the current year and company
     const offersMonthWise = await Offer.aggregate([
         {
             $match: {
+                company: req.user.company,
                 createdAt: {
                     $gte: new Date(`${currentYear}-01-01`),
                     $lt: new Date(`${currentYear + 1}-01-01`)
@@ -52,21 +56,21 @@ export const getTotalRecruitersAndTotalOfferMonthWise = asyncHandler(async (req,
         }
     ]);
 
-    
-
     res.status(200).json({ success: true, totalRecruiterMonthWise, offersMonthWise });
 }); 
 
 
 export const getCountOfTotalHRandTicketsMonthWise = asyncHandler(async (req, res, next) => {
+    // Only aggregate for the user's company
     const totalHRMonthWise = await User.aggregate([
-        { $match: { role: "HR" } },
+        { $match: { role: "HR", company: req.user.company } },
         { $group: {
             _id: { $month: "$createdAt" },
             count: { $sum: 1 }
         }}
     ]);
     const totalTicketsMonthWise = await Ticket.aggregate([
+        { $match: { company: req.user.company } },
         { $group: {
             _id: { $month: "$createdAt" },
             count: { $sum: 1 }
@@ -76,20 +80,21 @@ export const getCountOfTotalHRandTicketsMonthWise = asyncHandler(async (req, res
 });
 
 export const getCountOfActiveHRandAssignedHRMonthWise = asyncHandler(async (req, res, next) => {
+    // Only aggregate for the user's company
     const activeHRMonthWise = await User.aggregate([
-        { $match: { role: "HR", isActive: true } },
+        { $match: { role: "HR", isActive: true, company: req.user.company } },
         { $group: {
             _id: { $month: "$createdAt" },
             count: { $sum: 1 }
         }}
     ]);
-    const assignedHRMonthWise = await Ticket.aggregate([
-        { $match: { assignedTo: { $ne: null } } },
+    const assignedHRMonthWise = await Offer.aggregate([
+        { $match: { assignedTo: { $ne: null }, company: req.user.company } },
         { $group: {
             _id: { $month: "$createdAt" },
             count: { $sum: 1 }
         }}
-    ]); 
+    ]);
     res.status(200).json({ success: true, activeHRMonthWise, assignedHRMonthWise });
 });
 
