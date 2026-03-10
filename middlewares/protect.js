@@ -1,8 +1,10 @@
+
 import jwt from 'jsonwebtoken';
 import asyncHandler from '../utils/asyncHandler.js';
 import ErrorResponse from '../utils/errorResponse.js';
 import User from '../models/User.js';
 import { config } from '../config/index.js';
+import { tenantResolver } from './tenantResolver.js';
 
 export const protects = asyncHandler(async (req, res, next) => {
   let token;
@@ -31,5 +33,7 @@ export const protects = asyncHandler(async (req, res, next) => {
 
   req.user = user;
 
-  next();
+  // Attach tenant context
+  await tenantResolver(req, res, next);
+  if (!res.headersSent) next();
 });

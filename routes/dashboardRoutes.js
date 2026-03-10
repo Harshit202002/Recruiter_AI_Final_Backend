@@ -1,12 +1,11 @@
 import express from "express";
 import {protect} from "../middlewares/auth.js";
 import {authorize} from "../middlewares/roles.js";
-import {gettotalOffers, getToatalTicketsRaisedByRMG, getTotalRecruitersAndTotalOfferMonthWise, getCountOfTotalHRandTicketsMonthWise, getCountOfActiveHRandAssignedHRMonthWise, getCurrentOffers, getTotalCandidateMonthWise, getRecentJobTittleswithnumberofvacancies,getJdStatusPercentage, getallrecruitersandhisclosedpositions, getHRJobTittleswithnumberofvacancies} from "../controllers/dashboardController.js";
-import { getTotalFiltredandUnFilteredCandidatesFromAllJD } from "../controllers/dashboardController.js";
+import { getTotalOffers, getTotalTicketsRaisedByRMG, getTotalRecruitersAndTotalOfferMonthWise, getCountOfTotalHRandTicketsMonthWise, getCountOfActiveHRandAssignedHRMonthWise, getCurrentOffers, getTotalCandidateMonthWise, getRecentJobTittleswithnumberofvacancies, getJdStatusPercentage, getallrecruitersandhisclosedpositions, getHRJobTittleswithnumberofvacancies, getTotalFiltredandUnFilteredCandidatesFromAllJD } from "../controllers/dashboardController.js";
 
 const router = express.Router();
-router.get("/total-offers", protect, authorize("RMG", "HR"), gettotalOffers);
-router.get("/total-tickets-rmg", protect, authorize("RMG"), getToatalTicketsRaisedByRMG);
+router.get("/total-offers", protect, authorize("RMG", "HR"), getTotalOffers);
+router.get("/total-tickets-rmg", protect, authorize("RMG"), getTotalTicketsRaisedByRMG);
 router.get("/jobs-recruiters-month-wise", protect, authorize("RMG", "HR"), getTotalRecruitersAndTotalOfferMonthWise);
 router.get("/count-hr-tickets-month-wise", protect, authorize("RMG", "HR"), getCountOfTotalHRandTicketsMonthWise);
 router.get("/count-active-hr-assigned-hr-month-wise", protect, authorize("RMG", "HR"), getCountOfActiveHRandAssignedHRMonthWise);

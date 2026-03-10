@@ -1,6 +1,8 @@
 // Scheduled job: Notify HR when offer due date is near (within 3 days)
 export const notifyHrDueDateApproaching = asyncHandler(async (req, res, next) => {
   // Find offers with dueDate within next 3 days and status not Closed
+  const Offer = req.tenant.Offer;
+  const Notification = req.tenant.Notification;
   const now = new Date();
   const soon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
   const offers = await Offer.find({
@@ -9,7 +11,6 @@ export const notifyHrDueDateApproaching = asyncHandler(async (req, res, next) =>
     assignedTo: { $ne: null }
   }).populate('assignedTo', 'name email');
 
-  const Notification = (await import('../models/notification.js')).default;
   const io = req.app?.get?.('io');
   let notified = 0;
   for (const offer of offers) {
@@ -25,23 +26,24 @@ export const notifyHrDueDateApproaching = asyncHandler(async (req, res, next) =>
     });
     if (!recent) {
       await Notification.create({ recipient: hrId, message, link });
-    // Always associate offer with the admin's company
-    const company = req.user.company;
+      // Always associate offer with the admin's company
+      const company = req.user.company;
       if (io) io.to(hrId.toString()).emit('notification', { message, link, createdAt: new Date() });
       notified++;
     }
   }
   res.status(200).json({ success: true, notified, count: offers.length });
 });
-import Offer from "../models/Offer.js";
+
 import asyncHandler from "../utils/asyncHandler.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import sendEmail from "../utils/sendEmail.js"
 import {offerAssignedTemplate} from "../utils/emailTemplates/offerAssignedTemplate.js"
-import JobDescription from "../models/jobDescription.js";
-import User from "../models/User.js"
 
 export const createOffer = asyncHandler(async(req, res, next) => {
+    const Offer = req.tenant.Offer;
+    const User = req.tenant.User;
+    const JobDescription = req.tenant.JobDescription;
     const {
       jobTitle,
       priority,

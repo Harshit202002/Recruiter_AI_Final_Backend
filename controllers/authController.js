@@ -1,3 +1,19 @@
+// @desc   Get current logged-in user (tenant-aware, for /meAll route)
+// @route  GET /api/auth/meAll
+// @access Private
+export const getUserMe = asyncHandler(async (req, res) => {
+  const user = await req.tenant.User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found"
+    });
+  }
+  res.status(200).json({
+    success: true,
+    data: user,
+  });
+});
 // controllers/authController.js
 import jwt from 'jsonwebtoken';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -14,13 +30,31 @@ import { superAdminBaseUrl } from '../utils/ApiConstants.js';
 // @route  POST /api/auth/register
 // @access Public (you may change)
 export const register = asyncHandler(async (req, res, next) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, company } = req.body;
   if (!name || !email || !password) return next(new errorResponse('Please provide name, email and password', 400));
 
-  const existing = await User.findOne({ email });
-  if (existing) return next(new errorResponse('Email already exists', 400));
-
-  const user = await User.create({ name, email, password, role });
+  // If company is provided, use tenant-specific User model
+  let user;
+  let existingUser;
+  
+  if (company) {
+    const { getTenantDb } = await import('../utils/tenantDb.js');
+    const dbName = `company_${company}`;
+    const tenantConn = await getTenantDb(dbName);
+    const TenantUser = tenantConn.model('User', User.schema);
+    
+    existingUser = await TenantUser.findOne({ email });
+    if (existingUser) return next(new errorResponse('Email already exists', 400));
+    
+    user = await TenantUser.create({ name, email, password, role, company });
+  } else {
+    // Fallback for non-tenant registration
+    existingUser = await User.findOne({ email });
+    if (existingUser) return next(new errorResponse('Email already exists', 400));
+    
+    user = await User.create({ name, email, password, role });
+  }
+  
   sendTokenResponse(user, 201, res);
 });
 
@@ -48,13 +82,27 @@ export const login = asyncHandler(async (req, res, next) => {
     return next(new errorResponse('Please provide email and password', 400));
   }
 
-  const user = await User.findOne({ email }).select('+password');
+  let user;
+
+  try {
+    const host = req.headers.host;
+    const company = host.split('.')[0]; // extract subdomain
+
+    const { getTenantDb } = await import('../utils/tenantDb.js');
+    const dbName = `company_${company}`;
+    const tenantConn = await getTenantDb(dbName);
+    const TenantUser = tenantConn.model('User', User.schema);
+
+    user = await TenantUser.findOne({ email }).select('+password');
+
+  } catch (err) {
+    return next(new errorResponse('Invalid tenant configuration', 400));
+  }
 
   if (!user) {
     return next(new errorResponse('Invalid credentials', 401));
   }
 
-  // ✅ ADD THIS CHECK
   if (!user.isActive) {
     return next(new errorResponse('Account is deactivated. Contact admin.', 403));
   }
@@ -76,16 +124,18 @@ export const getCandidateMe = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: user });
 });
 
-export const getUserMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
 
+// @desc   Get current logged-in user (tenant-aware)
+// @route  GET /api/auth/me
+// @access Private
+export const getMe = asyncHandler(async (req, res) => {
+  const user = await req.tenant.User.findById(req.user.id);
   if (!user) {
     return res.status(404).json({
       success: false,
       message: "User not found"
     });
   }
-
   res.status(200).json({
     success: true,
     data: user,
@@ -190,7 +240,7 @@ export const syncCompanyFromExternalDB = asyncHandler(async (req, res, next) => 
 
 export const getAllCompanies = asyncHandler(async (req, res) => {
   try {
-    const companies = await Company.find();
+    const companies = await req.tenant.Company.find();
     res.status(200).json({ success: true, count: companies.length, data: companies });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

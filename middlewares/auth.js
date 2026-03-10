@@ -1,9 +1,11 @@
 // middlewares/auth.js
+
 import jwt from 'jsonwebtoken';
 import asyncHandler from '../utils/asyncHandler.js';
 import errorResponse from '../utils/errorResponse.js';
 import User from '../models/User.js';
 import { config } from '../config/index.js';
+import { tenantResolver } from './tenantResolver.js';
 
 export const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -24,7 +26,10 @@ export const protect = asyncHandler(async (req, res, next) => {
     const decoded = jwt.verify(token, config.jwtSecret);
     req.user = await User.findById(decoded.id).select('-password');
     if (!req.user) return next(new errorResponse('No user found for this token', 401));
-    next();
+    // Attach tenant context
+    await tenantResolver(req, res, next);
+    // Only call next() if tenantResolver did not already call it
+    if (!res.headersSent) next();
   } catch (err) {
     return next(new errorResponse('Token invalid', 401));
   }

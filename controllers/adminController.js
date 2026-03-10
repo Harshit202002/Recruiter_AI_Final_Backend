@@ -1,119 +1,100 @@
+// Update RMG user
+export const updateRmg = asyncHandler(async (req, res, next) => {
+  try {
+    const rmgId = req.params.id;
+    const updates = req.body;
+    const rmgUser = await User.findOneAndUpdate(
+      { _id: rmgId, role: 'RMG' },
+      updates,
+      { new: true }
+    ).select('-password');
+    if (!rmgUser) {
+      return next(new ErrorResponse('RMG user not found', 404));
+    }
+    res.status(200).json({ success: true, message: 'RMG updated', data: rmgUser });
+  } catch (err) {
+    return next(new ErrorResponse(err.message || 'Failed to update RMG', 500));
+  }
+});
+// Register a new RMG user
+export const registerRMG = asyncHandler(async (req, res, next) => {
+  const { name, phone, email, company } = req.body;
+  if (!name || !phone || !email || !company) {
+    return next(new ErrorResponse('Please provide name, phone, email, and company', 400));
+  }
+  const TenantUser = req.tenant.User;
+  const existingRMG = await TenantUser.findOne({ email });
+  if (existingRMG) return next(new ErrorResponse('Email already registered', 400));
+  const rmgPassword = generatePassword();
+  try {
+    const user = await TenantUser.create({ name, phone, email, password: rmgPassword, role: 'RMG', company });
+    await sendEmail({
+      to: email,
+      subject: 'Your RMG account has been created',
+      html: buildCredentialEmail(name, phone, email, rmgPassword, 'RMG'),
+    });
+    res.status(201).json({ success: true, message: 'RMG created and email sent', data: { id: user._id, email } });
+  } catch (err) {
+    return next(new ErrorResponse(err.message || 'Failed to create RMG', 500));
+  }
+});
+
+// Register a new HR user
+export const registerHR = asyncHandler(async (req, res, next) => {
+  const { name, phone, email, company } = req.body;
+  if (!name || !phone || !email || !company) {
+    return next(new ErrorResponse('Please provide name, phone, email, and company', 400));
+  }
+  const TenantUser = req.tenant.User;
+  const existingHR = await TenantUser.findOne({ email });
+  if (existingHR) return next(new ErrorResponse('Email already registered', 400));
+  const hrPassword = generatePassword();
+  try {
+    const user = await TenantUser.create({ name, phone, email, password: hrPassword, role: 'HR', company });
+    await sendEmail({
+      to: email,
+      subject: 'Your HR account has been created',
+      html: buildCredentialEmail(name, phone, email, hrPassword, 'HR'),
+    });
+    res.status(201).json({ success: true, message: 'HR created and email sent', data: { id: user._id, email } });
+  } catch (err) {
+    return next(new ErrorResponse(err.message || 'Failed to create HR', 500));
+  }
+});
+// Get all RMG users
+export const getAllRMG = asyncHandler(async (req, res, next) => {
+  try {
+    const rmgs = await User.find({ role: 'RMG' }).select('-password');
+    res.status(200).json({ success: true, count: rmgs.length, data: rmgs });
+  } catch (err) {
+    return next(new ErrorResponse(err.message || 'Failed to fetch RMG users', 500));
+  }
+});
+// Delete RMG user
+export const deleteRmg = asyncHandler(async (req, res, next) => {
+  try {
+    const rmgId = req.params.id;
+    const rmgUser = await User.findOneAndDelete({ _id: rmgId, role: 'RMG' });
+    if (!rmgUser) {
+      return next(new ErrorResponse('RMG user not found', 404));
+    }
+    res.status(200).json({ success: true, message: 'RMG deleted' });
+  } catch (err) {
+    return next(new ErrorResponse(err.message || 'Failed to delete RMG', 500));
+  }
+});
 // controllers/adminController.js
 import mongoose from 'mongoose';
 import asyncHandler from '../utils/asyncHandler.js';
 import ErrorResponse from '../utils/errorResponse.js';
-import User from '../models/User.js';
+// import User from '../models/User.js';
 import generatePassword from '../utils/generatePassword.js';
 import sendEmail from '../utils/sendEmail.js';
 import { roles } from '../models/User.js';
 
 /**
  * Admin registers a single RMG for a company.
- * - Only one RMG allowed per company.
- * Body: { name, email, company }  // company = ObjectId (or string if you use string)
- */
-export const registerRMG = asyncHandler(async (req, res, next) => {
-  const { name, email, company } = req.body;
-
-  if (!name || !email || !company) {
-    return next(new ErrorResponse('Please provide name, email and company', 400));
-  }
-
-  // ensure role email unique
-  const existing = await User.findOne({ email });
-  if (existing) return next(new ErrorResponse('Email already registered', 400));
-
-  // ensure only one RMG exists in the system
-  const existingAnyRMG = await User.findOne({ role: 'RMG' });
-  if (existingAnyRMG) return next(new ErrorResponse('An RMG already exists. Only one RMG can be registered.', 400));
-
-  // generate secure password
-  const password = generatePassword();
-
-  // create user in a transaction (safe)
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const user = await User.create(
-      [
-        {
-          name,
-          email,
-          password,
-          role: 'RMG',
-          company,
-        },
-      ],
-      { session }
-    );
-
-    // send credentials email
-    await sendEmail({
-      to: email,
-      subject: 'Your RMG account has been created',
-      html: buildCredentialEmails(name, email, password, 'RMG'),
-    });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(201).json({ success: true, message: 'RMG created and email sent', data: { id: user[0]._id, email } });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    return next(new ErrorResponse(err.message || 'Failed to create RMG', 500));
-  }
-});
-
-/**
- * Admin registers an HR user (multiple allowed).
- * Body: { name, email, company }
- */
-
-// export const getAllRMG = async(async (req, res, next) => {
-//   try {
-//     const rmgUsers = await User.find({ role: 'RMG' }).select('-password');
-//     res.status(200).json({ success: true, count: rmgUsers.length, data: rmgUsers });
-//   }
-//   catch (err) {
-//     return next(new ErrorResponse(err.message || 'Failed to fetch RMGs', 500));
-//   }
-// });
-export const getAllRMG = async (req, res, next) => {
-  try {
-    const rmgUsers = await User.find({ role: 'RMG' }).select('-password');
-    res.status(200).json({ success: true, count: rmgUsers.length, data: rmgUsers });
-  } catch (err) {
-    return next(new ErrorResponse(err.message || 'Failed to fetch RMGs', 500));
-  }
-};
-
-export const updateLastLogin = asyncHandler(async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { lastlogin: new Date() },
-      { new: true }
-    );
-
-    if (!user) {
-      return next(new ErrorResponse('User not found', 404));
-    }
-
-    res.status(200).json({ success: true, message: 'Last login updated', data: user });
-  } catch (err) {
-    return next(new ErrorResponse(err.message || 'Failed to update last login', 500));
-  }
-});
-
-export const updateRmg = asyncHandler(async (req, res, next) => {
-  try {
-    const rmgId = req.params.id;
-    const updates = req.body;
-    
-    const rmgUser = await User.findOneAndUpdate(
+    const rmgUser = await TenantUser.findOneAndUpdate(
       { _id: rmgId, role: 'RMG' },
       updates,
       { new: true }
@@ -123,6 +104,7 @@ export const updateRmg = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('RMG user not found', 404));
     }
     
+  // Delete RMG user
     res.status(200).json({ success: true, message: 'RMG updated', data: rmgUser });
   }
   catch (err) {
@@ -130,15 +112,16 @@ export const updateRmg = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const deleteRmg = asyncHandler(async (req, res, next) => {
   try {
+    const TenantUser = req.tenant.User;
     const rmgId = req.params.id;
     
-    const rmgUser = await User.findOneAndDelete(
+    const rmgUser = await TenantUser.findOneAndDelete(
       { _id: rmgId, role: 'RMG' }
     );
     
     if (!rmgUser) {
+  // Register an HR user (multiple allowed)
       return next(new ErrorResponse('RMG user not found', 404));
     }
     
@@ -150,27 +133,27 @@ export const deleteRmg = asyncHandler(async (req, res, next) => {
 });
 
 
-export const registerHR = asyncHandler(async (req, res, next) => {
-  const { name, phone, email, company } = req.body;
-  if (!name || !phone || !email || !company) {
+  const { name: hrName, phone: hrPhone, email: hrEmail, company: hrCompany } = req.body;
+  if (!hrName || !hrPhone || !hrEmail || !hrCompany) {
     return next(new ErrorResponse('Please provide name, email and company', 400));
   }
  
-  const existing = await User.findOne({ email });
-  if (existing) return next(new ErrorResponse('Email already registered', 400));
+  const TenantUser = req.tenant.User;
+  const existingHR = await TenantUser.findOne({ email: hrEmail });
+  if (existingHR) return next(new ErrorResponse('Email already registered', 400));
 
-  const password = generatePassword();
+  const hrPassword = generatePassword();
 
   try {
-    const user = await User.create({ name, phone, email, password, role: 'HR', company });
+    const user = await TenantUser.create({ name: hrName, phone: hrPhone, email: hrEmail, password: hrPassword, role: 'HR', company: hrCompany });
 
     await sendEmail({
-      to: email,
+      to: hrEmail,
       subject: 'Your HR account has been created',
-      html: buildCredentialEmail(name, phone, email, password, 'HR'),
+      html: buildCredentialEmail(hrName, hrPhone, hrEmail, hrPassword, 'HR'),
     });
 
-    res.status(201).json({ success: true, message: 'HR created and email sent', data: { id: user._id, email } });
+    res.status(201).json({ success: true, message: 'HR created and email sent', data: { id: user._id, email: hrEmail } });
   } catch (err) {
     return next(new ErrorResponse(err.message || 'Failed to create HR', 500));
   }
@@ -179,15 +162,12 @@ export const registerHR = asyncHandler(async (req, res, next) => {
 /* Helper to build HTML credential email */
 const buildCredentialEmail = (name, number, email, password, role) => {
   const loginUrl = 'https://recruterai.netfotech.in/login';
-  const companyLine = `<p style="margin:0">Role: <strong>${role}</strong></p>`;
-
   return `
   <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height:1.5;">
     <div style="max-width:600px;margin:0 auto;border:1px solid #e6eef8;padding:28px;border-radius:8px;">
       <h2 style="margin-top:0;color:#0b5fff">Welcome to Recruiter Portal</h2>
       <p>Hi <strong>${name}</strong>,</p>
       <p>Your account has been created by your Company Admin. Use the credentials below to sign in:</p>
-
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:8px;border:1px solid #f1f5f9;width:30%">Email</td>
@@ -206,13 +186,10 @@ const buildCredentialEmail = (name, number, email, password, role) => {
           <td style="padding:8px;border:1px solid #f1f5f9">${role}</td>
         </tr>
       </table>
-
       <p style="margin-top:18px">For security, please change your password after first login. You can login here:</p>
-
       <p style="text-align:center;margin:20px 0">
         <a href="${loginUrl}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#0b5fff;color:#fff;text-decoration:none">Go to Login</a>
       </p>
-
       <hr style="border:none;border-top:1px solid #eef2ff;margin:18px 0"/>
       <p style="color:#475569;font-size:13px;margin:0">If you didn’t expect this email, please contact your company administrator.</p>
       <p style="color:#94a3b8;font-size:12px;margin:12px 0 0">© ${new Date().getFullYear()} Recruiter Portal</p>
@@ -223,15 +200,12 @@ const buildCredentialEmail = (name, number, email, password, role) => {
 
 const buildCredentialEmails = (name, email, password, role) => {
   const loginUrl = 'https://recruterai.netfotech.in/login';
-  const companyLine = `<p style="margin:0">Role: <strong>${role}</strong></p>`;
-
   return `
   <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height:1.5;">
     <div style="max-width:600px;margin:0 auto;border:1px solid #e6eef8;padding:28px;border-radius:8px;">
       <h2 style="margin-top:0;color:#0b5fff">Welcome to Recruiter Portal</h2>
       <p>Hi <strong>${name}</strong>,</p>
       <p>Your account has been created by your Company Admin. Use the credentials below to sign in:</p>
-
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:8px;border:1px solid #f1f5f9;width:30%">Email</td>
@@ -246,13 +220,10 @@ const buildCredentialEmails = (name, email, password, role) => {
           <td style="padding:8px;border:1px solid #f1f5f9">${role}</td>
         </tr>
       </table>
-
       <p style="margin-top:18px">For security, please change your password after first login. You can login here:</p>
-
       <p style="text-align:center;margin:20px 0">
         <a href="${loginUrl}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#0b5fff;color:#fff;text-decoration:none">Go to Login</a>
       </p>
-
       <hr style="border:none;border-top:1px solid #eef2ff;margin:18px 0"/>
       <p style="color:#475569;font-size:13px;margin:0">If you didn’t expect this email, please contact your company administrator.</p>
       <p style="color:#94a3b8;font-size:12px;margin:12px 0 0">© ${new Date().getFullYear()} Recruiter Portal</p>

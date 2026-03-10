@@ -1,5 +1,6 @@
 // Get candidate profile (self)
 export const getCandidateProfile = asyncHandler(async (req, res, next) => {
+  const Candidate = req.tenant.Candidate;
   const candidateId = req.candidate._id;
   const candidate = await Candidate.findById(candidateId).select('-password');
   if (!candidate) return next(new errorResponse('Candidate not found', 404));
@@ -8,6 +9,7 @@ export const getCandidateProfile = asyncHandler(async (req, res, next) => {
 
 // Update candidate profile (only phone and resume)
 export const updateCandidateProfile = asyncHandler(async (req, res, next) => {
+  const Candidate = req.tenant.Candidate;
   const candidateId = req.candidate._id;
   const { phone } = req.body;
   let resumeUrl = null;
@@ -41,6 +43,7 @@ import { config } from "../config/index.js";
 
 // Register candidate
 export const registerCandidate = asyncHandler(async (req, res, next) => {
+  const Candidate = req.tenant.Candidate;
   const { name, email, password, phone } = req.body;
   if (!name || !email || !password || !phone) return next(new errorResponse("All fields required", 400));
   const existing = await Candidate.findOne({ email });
@@ -103,6 +106,7 @@ export const applyJob = asyncHandler(async (req, res, next) => {
   await candidate.save();
 
   // Fetch JD and populate offerId to get jobTitle
+  const JD = req.tenant.JobDescription;
   const jd = await JD.findById(jdId).populate({ path: 'offerId', select: 'jobTitle' });
   if (!jd) return next(new errorResponse("JD not found", 404));
 
@@ -159,6 +163,7 @@ export const applyJob = asyncHandler(async (req, res, next) => {
 // Get all jobs applied by candidate
 export const getAppliedJobs = asyncHandler(async (req, res, next) => {
   const candidateId = req.candidate._id;
+  const JD = req.tenant.JobDescription;
   const jds = await JD.find({ "appliedCandidates.candidate": candidateId });
   res.json({ success: true, jobs: jds });
 });
@@ -199,6 +204,7 @@ export const sendBulkJDInvite = asyncHandler(async (req, res, next) => {
   if (!jdId) return next(new errorResponse('JD id is required', 400));
 
   // Fetch JD details
+  const JD = req.tenant.JobDescription;
   const jd = await JD.findById(jdId);
   if (!jd) {
     return next(new errorResponse('Job Description not found', 404));
